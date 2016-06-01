@@ -1527,6 +1527,30 @@ class TestHttpd(_TestBase):
         assert result.status == 'HTTP/1.1 200 OK'
         assert result.body == b'Host: localhost\nx-ANY_k: one\nx-ANY_k: two'
 
+    def test_chunked_timeout(self):
+        def app(env, start_response):
+            start_response('200 OK', [('Content-Type', 'text/plain')])
+            line = b'a' * (1 << 20)
+            for _ in range(10):
+                yield line
+                eventlet.sleep(0.1)
+
+        self.spawn_server(site=app, socket_timeout=0.1)
+        sock = eventlet.connect(self.server_addr)
+        print('client socket: {0}'.format(sock.fileno()))
+        sock.sendall(b'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        status, headers = read_headers(sock)
+        assert headers['transfer-encoding'] == 'chunked'
+        ss = tests.get_sockets(filters={'status': 'ESTABLISHED'})
+        assert len(ss) == 2, repr(ss)
+
+        sock.recv(1)
+        eventlet.sleep(0.2)
+        recvall(sock)
+        ss = tests.get_sockets(filters={'status': 'ESTABLISHED'})
+        assert len(ss) == 0, repr(ss)
+        sock.close()
+
 
 def read_headers(sock):
     fd = sock.makefile('rb')

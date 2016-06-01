@@ -319,6 +319,7 @@ class HttpProtocol(BaseHTTPServer.BaseHTTPRequestHandler):
                                           "of type %s" % type(conn))
 
     def handle_one_request(self):
+        print('wsgi: socket: {0}'.format(repr(self.connection.fileno())))
         if self.server.max_http_version:
             self.protocol_version = self.server.max_http_version
 
@@ -630,10 +631,15 @@ class HttpProtocol(BaseHTTPServer.BaseHTTPRequestHandler):
         try:
             BaseHTTPServer.BaseHTTPRequestHandler.finish(self)
         except socket.error as e:
+            print('wsgi.finish error:', str(e))
             # Broken pipe, connection reset by peer
             if support.get_errno(e) not in BROKEN_SOCK:
                 raise
+        # finally:
+        #     pass
+        print('wsgi.finish shutdown')
         greenio.shutdown_safe(self.connection)
+        print('wsgi.finish close')
         self.connection.close()
 
     def handle_expect_100(self):
@@ -718,6 +724,7 @@ class Server(BaseHTTPServer.HTTPServer):
         try:
             proto.__init__(sock, address, self)
         except socket.timeout:
+            print('socket.timeout')
             # Expected exceptions are not exceptional
             sock.close()
             # similar to logging "accepted" in server()

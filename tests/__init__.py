@@ -21,6 +21,7 @@ import unittest
 import warnings
 
 from nose.plugins.skip import SkipTest
+import psutil
 
 import eventlet
 from eventlet import tpool
@@ -344,6 +345,14 @@ def run_isolated(path, prefix='tests/isolated/', env=None, args=None):
     if not ok:
         sys.stderr.write('Isolated test {0} output:\n---\n{1}\n---\n'.format(path, output.decode()))
     assert ok, 'Expected single line "pass" in stdout'
+
+
+def get_sockets(filters=None):
+    xs = psutil.Process().connections(kind='all')
+    print('get_sockets: {0}'.format(xs))
+    if filters:
+        xs = [c for c in xs if all(getattr(c, f) == filters[f] for f in filters)]
+    return xs
 
 
 certificate_file = os.path.join(os.path.dirname(__file__), 'test_server.crt')
